@@ -1,0 +1,29 @@
+{
+  "name": "finshe-backend",
+  "version": "1.0.0",
+  "description": "Simple Node.js/Express backend for FinShe chatbot using OpenRouter",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "@openrouter/sdk": "^0.9.11",
+    "axios": "^1.13.6",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "serpapi": "^2.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  },
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
