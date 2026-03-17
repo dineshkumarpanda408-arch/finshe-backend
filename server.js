@@ -179,6 +179,7 @@ app.get('/version', (req, res) => {
 // Chat endpoint
 // ----------------------
 app.post('/api/chat', async (req, res) => {
+console.log("🔥 /api/chat hit");
   try {
     const { message, context, history = [] } = req.body || {};
 
