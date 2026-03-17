@@ -170,7 +170,7 @@ app.get('/', (req, res) => {
 // ----------------------
 // Version check (helps verify redeploys)
 // ----------------------
-const BACKEND_VERSION = 'finshe-backend-cloud-fallback-2026-03-17';
+const BACKEND_VERSION = 'finshe-backend-cloud-fallback-2026-03-17b';
 app.get('/version', (req, res) => {
   res.json({ version: BACKEND_VERSION });
 });
