@@ -5,6 +5,7 @@
 
 param(
     [string]$Message = "Can you suggest some colleges for masters study abroad?",
+    # Default to local server (matches `node server.js`).
     [string]$Server = "http://localhost:3000"
 )
 
@@ -15,7 +16,7 @@ Write-Host "Sending to $uri ..." -ForegroundColor Cyan
 Write-Host ""
 
 try {
-    $response = Invoke-RestMethod -Uri $uri -Method POST -Body $body -ContentType "application/json; charset=utf-8" -UseBasicParsing
+    $response = Invoke-RestMethod -Uri $uri -Method POST -Body $body -ContentType "application/json; charset=utf-8" -UseBasicParsing -TimeoutSec 90
     
     if ($response.reply) {
         Write-Host "=== FULL REPLY ===" -ForegroundColor Green

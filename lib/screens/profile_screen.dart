@@ -6,7 +6,6 @@ import '../models/user_model.dart';
 import '../models/scholarship_model.dart';
 import '../models/loan_model.dart';
 import '../services/firestore_service.dart';
-import '../widgets/server_url_dialog.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -71,7 +70,7 @@ class ProfileScreen extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.smart_toy_rounded),
             title: const Text('AI Assistant'),
-            subtitle: const Text('Uses FinShe backend + OpenRouter and live web data. No extra key needed.'),
+            subtitle: const Text('Uses the FinShe cloud backend + live web data. No extra setup needed.'),
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -80,22 +79,15 @@ class ProfileScreen extends StatelessWidget {
               );
             },
           ),
-          FutureBuilder<String>(
-            future: BackendConfig.getBaseUrl(),
-            builder: (context, snapshot) {
-              final url = snapshot.data ?? defaultBaseUrl;
-              return ListTile(
-                leading: const Icon(Icons.dns_rounded),
-                title: const Text('Server URL'),
-                subtitle: Text(
-                  url,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                onTap: () => _showServerUrlDialog(context),
-              );
-            },
+          ListTile(
+            leading: const Icon(Icons.cloud_rounded),
+            title: const Text('Backend'),
+            subtitle: Text(
+              BackendConfig.baseUrl,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
           const Divider(),
           const Text('Saved Scholarships', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -120,13 +112,6 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // OpenAI key UI is no longer needed because AI now goes through the FinShe backend.
-
-  void _showServerUrlDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => const ServerUrlDialog(),
-    );
-  }
 
   Future<void> _editPreferences(BuildContext context, AppProvider app, UserModel user) async {
     await showDialog(

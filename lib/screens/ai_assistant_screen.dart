@@ -3,9 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/scholarship_model.dart';
 import '../models/loan_model.dart';
-import '../services/ai_service.dart';
-import '../config/backend_config.dart';
-import '../widgets/server_url_dialog.dart';
 
 class AIAssistantScreen extends StatefulWidget {
   const AIAssistantScreen({super.key});
@@ -19,18 +16,10 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
   final _scrollController = ScrollController();
   final List<_Bubble> _messages = [];
   bool _loading = false;
-  bool? _serverReachable;
 
   @override
   void initState() {
     super.initState();
-    _checkConnection();
-  }
-
-  Future<void> _checkConnection() async {
-    final url = await BackendConfig.getBaseUrl();
-    final err = await BackendConfig.testConnection(url);
-    if (mounted) setState(() => _serverReachable = err == null);
   }
 
   @override
@@ -75,22 +64,12 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
         loans: result.loans,
       ));
       _loading = false;
-      if (result.backendReachable) _serverReachable = true;
-      if (!result.backendReachable) _serverReachable = false;
     });
     if (!result.backendReachable && mounted) {
-      setState(() => _serverReachable = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Could not reach AI server. Tap the WiFi icon to fix.'),
-          duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-            label: 'Fix',
-            onPressed: () => showDialog(
-              context: context,
-              builder: (_) => ServerUrlDialog(onSaved: _checkConnection),
-            ),
-          ),
+        const SnackBar(
+          content: Text('Cloud AI is temporarily unreachable. Please try again.'),
+          duration: Duration(seconds: 4),
         ),
       );
     }
@@ -113,14 +92,6 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
         title: const Text('AI Assistant'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.wifi_find_rounded),
-            tooltip: 'Server URL – fix connection',
-            onPressed: () => showDialog(
-              context: context,
-              builder: (_) => ServerUrlDialog(onSaved: _checkConnection),
-            ),
-          ),
-          IconButton(
             icon: const Icon(Icons.lightbulb_outline_rounded),
             tooltip: 'Example: Scholarships for women in Germany',
             onPressed: () {
@@ -132,29 +103,7 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
       ),
       body: Column(
         children: [
-          if (_serverReachable == false)
-            Material(
-              color: Colors.orange.shade100,
-              child: InkWell(
-                onTap: () => showDialog(context: context, builder: (_) => ServerUrlDialog(onSaved: _checkConnection)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  child: Row(
-                    children: [
-                      Icon(Icons.wifi_off_rounded, color: Colors.orange.shade900, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Can\'t reach server. Tap to set Server URL (same Wi‑Fi required)',
-                          style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
-                        ),
-                      ),
-                      Icon(Icons.chevron_right, color: Colors.orange.shade900, size: 20),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          // No always-on "unreachable" banner: we only show an error after an actual failed request.
           Expanded(
             child: _messages.isEmpty
                 ? Center(
@@ -178,7 +127,7 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Powered by FinShe backend + AI. We combine your saved data, global knowledge, and live web results to answer your questions.',
+                            'Powered by the FinShe cloud backend. We combine your saved data, global knowledge, and live web results to answer your questions.',
                             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline, fontStyle: FontStyle.italic),
                             textAlign: TextAlign.center,
                           ),

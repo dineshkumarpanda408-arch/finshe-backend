@@ -14,18 +14,19 @@ app.use(express.json());
 
 const hasSerpApi = !!process.env.SERPAPI_KEY;
 
-// openrouter/free auto-selects from available free models; specific models as fallbacks
+// Requested OpenRouter free models (in priority order)
 const models = [
-  "openrouter/free",
-  "meta-llama/llama-3.3-70b-instruct",
-  "openai/gpt-oss-120b",
-  "stepfun/step-3.5-flash",
+  "openai/gpt-oss-120b:free",
   "google/gemma-3-4b-it:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
 ];
 
 // Small helper to safely use fetch (Node 18+)
-async function httpGetJson(url) {
-  const res = await fetch(url);
+async function httpGetJson(url, { timeoutMs = 12000 } = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const res = await fetch(url, { signal: controller.signal });
+  clearTimeout(timeout);
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} for ${url}`);
   }
@@ -59,8 +60,11 @@ async function summarizePage(pageText) {
   if (!pageText) return "";
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json"
@@ -73,6 +77,7 @@ async function summarizePage(pageText) {
         ]
       })
     });
+    clearTimeout(timeout);
 
     const data = await response.json();
     return data?.choices?.[0]?.message?.content || "";
@@ -87,86 +92,54 @@ async function summarizePage(pageText) {
 // ----------------------
 async function buildWebContext(query) {
   if (!hasSerpApi) {
-    return '\n\n[Web search is disabled because SERPAPI_KEY is not configured on the server.]';
+    return { results: [], note: 'Web search is disabled because SERPAPI_KEY is not configured on the server.' };
   }
 
   try {
     const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(query)}&api_key=${process.env.SERPAPI_KEY}`;
-    const data = await httpGetJson(url);
+    const data = await httpGetJson(url, { timeoutMs: 12000 });
     const organic = data.organic_results || [];
-    const top = organic.slice(0, 5); // top 5 results
+    const top = organic.slice(0, 5); // snippets only (fast)
+    const results = top
+      .map((r) => ({
+        title: r?.title || 'Result',
+        snippet: r?.snippet || '',
+        link: r?.link || '',
+        source: r?.source || '',
+      }))
+      .filter((r) => r.link || r.snippet);
 
-    if (!top.length) return '';
-
-    let lines = '';
-
-    for (let i = 0; i < top.length; i++) {
-      const r = top[i];
-      const title = r.title || 'Result';
-      const snippet = r.snippet || '';
-      const link = r.link || '';
-
-      // Extract page content
-      let pageText = await extractPageContent(link);
-
-      // Summarize page
-      let summary = "";
-      if (pageText) {
-        pageText = pageText.replace(/\n{2,}/g, '\n').trim();
-        summary = await summarizePage(pageText);
-        summary = summary.replace(/\n{2,}/g, '\n').trim();
-      }
-
-      // Append only the summary
-      lines += `${i + 1}. ${title}\nSnippet: ${snippet}\nLink: ${link}\nSummary:\n${summary}\n\n`;
-    }
-
-    return `\n\nWeb search results (summaries from top links):\n${lines}\n\nUse these only if they look trustworthy and helpful.`;
+    return { results, note: '' };
   } catch (e) {
     console.warn('Web search failed:', e.message);
-    return '';
+    return { results: [], note: 'Web search failed.' };
   }
 }
 
-// ----------------------
-// Build FinShe database context
-// ----------------------
-function buildDbContext(context = {}) {
-  const { scholarships = [], loans = [], preferences = {} } = context;
+function formatWebResultsReply(results, note) {
+  if (!results?.length) {
+    return note
+      ? `I couldn’t fetch web results right now. (${note})`
+      : 'I couldn’t fetch web results right now. Please try again.';
+  }
 
-  const prefsText = [
-    preferences.country ? `country: ${preferences.country}` : null,
-    preferences.degree ? `degree: ${preferences.degree}` : null,
-    preferences.fieldOfStudy ? `field: ${preferences.fieldOfStudy}` : null,
-  ].filter(Boolean).join(', ');
+  const lines = results.slice(0, 5).map((r, i) => {
+    const title = r.title?.trim() || 'Result';
+    const snippet = r.snippet?.trim() || '';
+    const link = r.link?.trim() || '';
+    const parts = [`${i + 1}) ${title}`];
+    if (snippet) parts.push(`- ${snippet}`);
+    if (link) parts.push(`- Link: ${link}`);
+    return parts.join('\n');
+  });
 
-  const scholarshipsText = scholarships
-    .slice(0, 15)
-    .map(
-      (s) =>
-        `${s.name || 'Unnamed'} (${s.provider || 'Unknown provider'}, ${s.country || 'country any'})` +
-        (s.amount ? `, amount: ${s.amount}` : '') +
-        (s.deadline ? `, deadline: ${s.deadline}` : '')
-    )
-    .join('\n');
-
-  const loansText = loans
-    .slice(0, 10)
-    .map(
-      (l) =>
-        `${l.name || 'Unnamed loan'} (${l.provider || 'Unknown provider'})` +
-        (l.interestRate ? `, interest: ${l.interestRate}` : '') +
-        (l.maxAmount ? `, max amount: ${l.maxAmount}` : '') +
-        (l.country ? `, country: ${l.country}` : '')
-    )
-    .join('\n');
-
-  let buf = '';
-  if (prefsText) buf += `User preferences: ${prefsText}.\n\n`;
-  if (scholarshipsText) buf += `Scholarships from FinShe database:\n${scholarshipsText}\n\n`;
-  if (loansText) buf += `Loans from FinShe database:\n${loansText}\n\n`;
-
-  return buf.trim();
+  return [
+    'Here are the most relevant web results I found:',
+    '',
+    lines.join('\n\n'),
+    '',
+    'If you want, tell me your category (e.g. SC/ST/OBC/EWS/General), gender, state, and family income range, and I’ll narrow these down.',
+  ].join('\n');
 }
 
 // ----------------------
@@ -195,6 +168,14 @@ app.get('/', (req, res) => {
 });
 
 // ----------------------
+// Version check (helps verify redeploys)
+// ----------------------
+const BACKEND_VERSION = 'finshe-backend-cloud-fallback-2026-03-17';
+app.get('/version', (req, res) => {
+  res.json({ version: BACKEND_VERSION });
+});
+
+// ----------------------
 // Chat endpoint
 // ----------------------
 app.post('/api/chat', async (req, res) => {
@@ -205,15 +186,32 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Missing or invalid "message" in request body.' });
     }
 
-    if (!process.env.OPENROUTER_API_KEY) {
-      return res.status(500).json({ error: 'OpenRouter API key is not configured on the server.' });
+    const m = message.trim();
+    const lower = m.toLowerCase();
+    const greetings = new Set(['hi', 'hii', 'hello', 'hey', 'hola']);
+    if (greetings.has(lower)) {
+      return res.json({
+        version: BACKEND_VERSION,
+        reply:
+          'Hi! I’m the FinShe assistant. Ask me anything about scholarships, education loans, budgeting, or your academic plans.',
+      });
     }
 
-    const webContext = await buildWebContext(message);
+    // Web context can be slow/unreliable on free hosting. Bound it tightly.
+    const web = await Promise.race([
+      buildWebContext(m),
+      new Promise((resolve) => setTimeout(() => resolve({ results: [], note: 'Web search timed out.' }), 12000)),
+    ]);
+
+    // If OpenRouter is not configured (or is down/busy), we still return something useful.
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    if (!openRouterKey) {
+      return res.json({ version: BACKEND_VERSION, reply: formatWebResultsReply(web.results, web.note) });
+    }
 
     const userContent = [
-      `User question: ${message}`,
-      webContext,
+      `User question: ${m}`,
+      web.results?.length ? `\n\nWeb search results:\n${web.results.map((r, i) => `${i + 1}. ${r.title}\nSnippet: ${r.snippet}\nLink: ${r.link}`).join('\n\n')}` : (web.note ? `\n\nWeb note: ${web.note}` : ''),
       '\n\nInstructions for you, the assistant:\n' +
       '- Answer the question using your knowledge and web search results.\n' +
       '- If conversation history is provided, use it to understand follow-up questions (e.g. "yes give", "tell me more", "send links").\n' +
@@ -253,13 +251,13 @@ app.post('/api/chat', async (req, res) => {
           console.log(`Trying model: ${model} (attempt ${attempt}/${maxRetries})`);
 
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 90000);
+          const timeout = setTimeout(() => controller.abort(), 20000);
 
           const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             signal: controller.signal,
             headers: {
-              "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+              "Authorization": `Bearer ${openRouterKey}`,
               "Content-Type": "application/json",
               "HTTP-Referer": "http://localhost:3000",
               "X-Title": "FinShe"
@@ -275,7 +273,7 @@ app.post('/api/chat', async (req, res) => {
 
           const aiMsg = extractAIMessage(completion);
           if (aiMsg) {
-            return res.json({ reply: aiMsg, raw: completion });
+            return res.json({ version: BACKEND_VERSION, reply: aiMsg, raw: completion });
           }
           if (completion?.error?.message) {
             console.log("OpenRouter error:", completion.error.message);
@@ -290,9 +288,10 @@ app.post('/api/chat', async (req, res) => {
     }
 
     console.log("All models failed. Last response:", JSON.stringify(completion)?.slice(0, 500));
-    return res.status(502).json({
-      error: "AI service is temporarily busy. Please try again in a moment.",
-      suggestion: "Short queries like 'Hello' often work; complex ones may need a retry."
+    // Fallback: even if OpenRouter is busy/down, return web results so the app still works.
+    return res.json({
+      version: BACKEND_VERSION,
+      reply: formatWebResultsReply(web.results, web.note || completion?.error?.message || 'AI provider is temporarily unavailable.'),
     });
 
   } catch (error) {
@@ -307,6 +306,20 @@ app.post('/api/chat', async (req, res) => {
 // Start server
 // ----------------------
 
-app.listen(port, '0.0.0.0', () => {
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`FinShe backend listening on http://0.0.0.0:${port}`);
+});
+
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`\nPort ${port} is already in use.\n`);
+    console.error('Fix (PowerShell):');
+    console.error(`  Get-NetTCPConnection -LocalPort ${port} -State Listen | Select-Object -ExpandProperty OwningProcess`);
+    console.error('  Stop-Process -Id <PID> -Force');
+    console.error('\nOr start on a different port:');
+    console.error('  $env:PORT=3001; node server.js');
+    process.exit(1);
+  }
+  console.error('Server failed to start:', err);
+  process.exit(1);
 });
