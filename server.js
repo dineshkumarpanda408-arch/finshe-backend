@@ -16,7 +16,7 @@ const hasSerpApi = !!process.env.SERPAPI_KEY;
 
 // Requested OpenRouter free models (in priority order)
 const models = [
- // "openai/gpt-oss-120b:free",
+  "openai/gpt-oss-120b:free",
   "google/gemma-3-4b-it:free",
  // "meta-llama/llama-3.3-70b-instruct:free",
 ];
