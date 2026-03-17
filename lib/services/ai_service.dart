@@ -77,7 +77,14 @@ class AIService {
 
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body);
-          return data['reply']?.toString();
+
+          final reply = data['reply']?.toString();
+
+          if (reply != null && reply.trim().isNotEmpty) {
+            return reply;
+          } else {
+            return "⚠️ No response from server. Please try again.";
+          }
         }
         // Surface backend errors (e.g. OpenRouter auth issues) to the app
         // so it's clear the server is reachable but misconfigured/busy.
