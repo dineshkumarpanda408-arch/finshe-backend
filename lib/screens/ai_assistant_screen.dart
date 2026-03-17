@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/scholarship_model.dart';
 import '../models/loan_model.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AIAssistantScreen extends StatefulWidget {
   const AIAssistantScreen({super.key});
@@ -216,7 +218,19 @@ class _ChatBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(bubble.text, style: theme.textTheme.bodyLarge),
+            MarkdownBody(
+              data: bubble.text,
+              selectable: true,
+              styleSheet: MarkdownStyleSheet(
+                p: theme.textTheme.bodyLarge,
+              ),
+              onTapLink: (text, href, title) async {
+                if (href != null) {
+                  final uri = Uri.parse(href);
+                  await launchUrl(uri);
+                }
+              },
+            ),
             if (bubble.scholarships.isNotEmpty) ...[
               const SizedBox(height: 12),
               ...bubble.scholarships.take(3).map((s) => Padding(

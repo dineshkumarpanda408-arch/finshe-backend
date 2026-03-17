@@ -5,6 +5,8 @@ import '../models/scholarship_model.dart';
 import '../models/loan_model.dart';
 import '../models/user_model.dart';
 import 'firestore_service.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Combines Firestore data with the FinShe backend (OpenRouter + web search).
 /// The backend is the primary brain; local logic is only a safety fallback.
