@@ -17,8 +17,8 @@ const hasSerpApi = !!process.env.SERPAPI_KEY;
 // Requested OpenRouter free models (in priority order)
 const models = [
   "openai/gpt-oss-120b:free",
-  "google/gemma-3-4b-it:free",
- // "meta-llama/llama-3.3-70b-instruct:free",
+ // "google/gemma-3-4b-it:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
 ];
 
 // Small helper to safely use fetch (Node 18+)
@@ -242,7 +242,9 @@ console.log("🔥 /api/chat hit");
         content: 'You are FinShe AI, an expert assistant that helps students find accurate scholarship information. Always prefer official government or university sources and avoid guessing. When the user says things like "yes give", "send links", "tell me more", refer back to your previous response and provide what they asked for.'
       },
       ...historyMessages,
-      { role: 'user', content: userContent }
+      { role: 'user', content:
+       content: 'You are FinShe AI, an expert assistant that helps students find accurate scholarship information. Always prefer official government or university sources and avoid guessing. When the user says things like "yes give", "send links", "tell me more", refer back to your previous response and provide what they asked for.'
+       userContent }
     ];
 
     let completion = null;
