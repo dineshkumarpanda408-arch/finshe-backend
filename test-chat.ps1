@@ -6,10 +6,11 @@
 param(
     [string]$Message = "Can you suggest some colleges for masters study abroad?",
     # Default to local server (matches `node server.js`).
-    [string]$Server = "http://localhost:3000"
+    [string]$Server = "http://localhost:3000",
+    [string]$SessionId = "powershell"
 )
 
-$body = @{ message = $Message; context = @{} } | ConvertTo-Json -Depth 3
+$body = @{ message = $Message; sessionId = $SessionId; context = @{}; history = @() } | ConvertTo-Json -Depth 6
 $uri = "$Server/api/chat"
 
 Write-Host "Sending to $uri ..." -ForegroundColor Cyan

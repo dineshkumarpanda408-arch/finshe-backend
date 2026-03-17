@@ -53,6 +53,13 @@ async function extractPageContent(url) {
   }
 }
 
+function normalizeText(s, maxChars = 4000) {
+  if (!s) return '';
+  const t = String(s).replace(/\s+/g, ' ').trim();
+  if (t.length <= maxChars) return t;
+  return t.slice(0, maxChars) + '…';
+}
+
 // ----------------------
 // Summarize page using a small model
 // ----------------------
@@ -116,6 +123,33 @@ async function buildWebContext(query) {
   }
 }
 
+async function buildBrowserContext(webResults, budgetMs) {
+  const startedAt = Date.now();
+  const links = (webResults || [])
+    .map((r) => r?.link)
+    .filter(Boolean)
+    .slice(0, 2); // keep it reliable on Render
+
+  if (!links.length) return [];
+
+  const tasks = links.map(async (link) => {
+    const remainingMs = Math.max(2000, budgetMs - (Date.now() - startedAt));
+    const timeoutMs = Math.min(8000, remainingMs);
+    try {
+      const pageText = await Promise.race([
+        extractPageContent(link),
+        new Promise((resolve) => setTimeout(() => resolve(''), timeoutMs)),
+      ]);
+      return { link, content: normalizeText(pageText, 3500) };
+    } catch (_) {
+      return { link, content: '' };
+    }
+  });
+
+  const pages = await Promise.all(tasks);
+  return pages.filter((p) => p.content);
+}
+
 function formatWebResultsReply(results, note) {
   if (!results?.length) {
     return note
@@ -170,18 +204,40 @@ app.get('/', (req, res) => {
 // ----------------------
 // Version check (helps verify redeploys)
 // ----------------------
-const BACKEND_VERSION = 'finshe-backend-cloud-fallback-2026-03-17b';
+const BACKEND_VERSION = 'finshe-backend-cloud-fallback-2026-03-17c';
 app.get('/version', (req, res) => {
   res.json({ version: BACKEND_VERSION });
 });
 
 // ----------------------
+// Minimal in-memory session store for continuity when clients don't resend history.
+// (Best-effort; resets when Render restarts.)
+// ----------------------
+const sessionStore = new Map(); // sessionId -> { messages: [{role, content}], updatedAt }
+const SESSION_TTL_MS = 30 * 60 * 1000;
+
+function getSessionMessages(sessionId) {
+  if (!sessionId) return [];
+  const entry = sessionStore.get(sessionId);
+  if (!entry) return [];
+  if (Date.now() - entry.updatedAt > SESSION_TTL_MS) {
+    sessionStore.delete(sessionId);
+    return [];
+  }
+  return Array.isArray(entry.messages) ? entry.messages : [];
+}
+
+function saveSessionMessages(sessionId, messages) {
+  if (!sessionId) return;
+  sessionStore.set(sessionId, { messages, updatedAt: Date.now() });
+}
+
+// ----------------------
 // Chat endpoint
 // ----------------------
 app.post('/api/chat', async (req, res) => {
-console.log("🔥 /api/chat hit");
   try {
-    const { message, context, history = [] } = req.body || {};
+    const { message, context, history = [], sessionId } = req.body || {};
 
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ error: 'Missing or invalid "message" in request body.' });
@@ -206,6 +262,12 @@ console.log("🔥 /api/chat hit");
       new Promise((resolve) => setTimeout(() => resolve({ results: [], note: 'Web search timed out.' }), 12000)),
     ]);
 
+    // Fetch + extract content from a couple top links ("browser" context).
+    const browserPages = await Promise.race([
+      buildBrowserContext(web.results, BUDGET_MS - (Date.now() - startedAt)),
+      new Promise((resolve) => setTimeout(() => resolve([]), 9000)),
+    ]);
+
     // If OpenRouter is not configured (or is down/busy), we still return something useful.
     const openRouterKey = process.env.OPENROUTER_API_KEY;
     if (!openRouterKey) {
@@ -215,6 +277,11 @@ console.log("🔥 /api/chat hit");
     const userContent = [
       `User question: ${m}`,
       web.results?.length ? `\n\nWeb search results:\n${web.results.map((r, i) => `${i + 1}. ${r.title}\nSnippet: ${r.snippet}\nLink: ${r.link}`).join('\n\n')}` : (web.note ? `\n\nWeb note: ${web.note}` : ''),
+      browserPages?.length
+        ? `\n\nExtracted page content (high-signal excerpts):\n${browserPages
+            .map((p, i) => `${i + 1}. ${p.link}\nExcerpt: ${p.content}`)
+            .join('\n\n')}`
+        : '',
       '\n\nInstructions for you, the assistant:\n' +
       '- Answer the question using your knowledge and web search results.\n' +
       '- If conversation history is provided, use it to understand follow-up questions (e.g. "yes give", "tell me more", "send links").\n' +
@@ -224,30 +291,34 @@ console.log("🔥 /api/chat hit");
       '- Combine reasoning as if consulting multiple AI experts to produce the most accurate answer.\n' +
       '- Prefer official scholarship websites or government sources when available.\n' +
       '- Mention the source name when giving important details.\n' +
-      '- If you are unsure about a fact, say "information may vary by year".\n'
+      '- If you are unsure about a fact, say "information may vary by year".\n' +
+      '- Output a complete, well-formatted answer. Use bullet points and include application links when possible.\n'
     ].join('');
 
     // Build messages: system + conversation history (last 10 turns) + current user content
     const maxHistoryTurns = 10;
-    const historyMessages = Array.isArray(history)
+    const providedHistory = Array.isArray(history)
       ? history
           .filter((h) => h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string')
           .slice(-maxHistoryTurns)
           .map((h) => ({ role: h.role, content: h.content }))
       : [];
+    const sessionHistory = providedHistory.length ? [] : getSessionMessages(sessionId).slice(-maxHistoryTurns);
+    const historyMessages = providedHistory.length ? providedHistory : sessionHistory;
 
     const openRouterMessages = [
       {
         role: 'system',
-        content: 'You are FinShe AI, an expert assistant that helps students find accurate scholarship information. Always prefer official government or university sources and avoid guessing. When the user says things like "yes give", "send links", "tell me more", refer back to your previous response and provide what they asked for.'
+        content:
+          'You are FinShe AI, an expert assistant that helps students find accurate scholarship information. ' +
+          'Always prefer official government or university sources and avoid guessing. ' +
+          'When the user says things like "yes give", "send links", "tell me more", refer back to your previous response and provide what they asked for. ' +
+          'Keep answers complete and include links.'
       },
       ...historyMessages,
       {
         role: 'user',
         content:
-          "You are FinShe AI, an expert assistant that helps students find accurate scholarship information. " +
-          "Always prefer official government or university sources and avoid guessing. " +
-          "When the user says things like 'yes give', 'send links', 'tell me more', refer back to your previous response.\n\n" +
           userContent
       }
     ];
@@ -283,7 +354,9 @@ console.log("🔥 /api/chat hit");
             },
             body: JSON.stringify({
               model: model,
-              messages: openRouterMessages
+              messages: openRouterMessages,
+              max_tokens: 1200,
+              temperature: 0.2
             })
           });
 
@@ -294,6 +367,9 @@ console.log("🔥 /api/chat hit");
 
           const aiMsg = extractAIMessage(completion);
           if (aiMsg) {
+            // Best-effort session continuity.
+            const newSessionMsgs = [...historyMessages, { role: 'user', content: m }, { role: 'assistant', content: aiMsg }].slice(-maxHistoryTurns);
+            saveSessionMessages(sessionId, newSessionMsgs);
             return res.json({ version: BACKEND_VERSION, reply: aiMsg, raw: completion });
           }
           if (completion?.error?.message) {

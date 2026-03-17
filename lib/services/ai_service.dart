@@ -32,6 +32,7 @@ class AIService {
       query: query,
       preferences: preferences,
       history: history,
+      sessionId: uid,
     );
 
     final backendOk = backendResponse?.trim().isNotEmpty == true;
@@ -51,11 +52,13 @@ class AIService {
     required String query,
     UserPreferences? preferences,
     List<Map<String, String>>? history,
+    String? sessionId,
   }) async {
     final uri = Uri.parse('$_backendBaseUrl/api/chat');
 
     final body = {
       'message': query,
+      'sessionId': sessionId,
       'history': history ?? [],
       'context': {
         'preferences': preferences?.toMap() ?? {},
