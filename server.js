@@ -16,9 +16,9 @@ const hasSerpApi = !!process.env.SERPAPI_KEY;
 
 // Requested OpenRouter free models (in priority order)
 const models = [
-  "openai/gpt-oss-120b:free",
+ // "openai/gpt-oss-120b:free",
   "google/gemma-3-4b-it:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
+ // "meta-llama/llama-3.3-70b-instruct:free",
 ];
 
 // Small helper to safely use fetch (Node 18+)
@@ -61,7 +61,7 @@ async function summarizePage(pageText) {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       signal: controller.signal,
@@ -246,7 +246,7 @@ console.log("🔥 /api/chat hit");
     ];
 
     let completion = null;
-    const maxRetries = 2;
+    const maxRetries = 1;
 
     for (const model of models) {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -261,7 +261,9 @@ console.log("🔥 /api/chat hit");
 
           const controller = new AbortController();
           const remainingMs = Math.max(3000, BUDGET_MS - (Date.now() - startedAt));
-          const timeout = setTimeout(() => controller.abort(), Math.min(12000, remainingMs));
+          const timeout = setTimeout(() => controller.abort(), Math.min(8000, remainingMs));
+
+          console.log("⏳ Calling OpenRouter...");
 
           const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
@@ -277,6 +279,8 @@ console.log("🔥 /api/chat hit");
               messages: openRouterMessages
             })
           });
+
+          console.log("✅ OpenRouter responded");
 
           clearTimeout(timeout);
           completion = await response.json();
