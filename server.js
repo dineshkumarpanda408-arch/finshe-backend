@@ -186,10 +186,12 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Missing or invalid "message" in request body.' });
     }
 
+    const startedAt = Date.now();
+    const BUDGET_MS = 25000; // always respond fast on free hosting
+
     const m = message.trim();
-    const lower = m.toLowerCase();
-    const greetings = new Set(['hi', 'hii', 'hello', 'hey', 'hola']);
-    if (greetings.has(lower)) {
+    const isGreeting = /\b(hi|hii|hello|hey|hola)\b/i.test(m);
+    if (isGreeting) {
       return res.json({
         version: BACKEND_VERSION,
         reply:
@@ -247,11 +249,18 @@ app.post('/api/chat', async (req, res) => {
 
     for (const model of models) {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        if (Date.now() - startedAt > BUDGET_MS) {
+          return res.json({
+            version: BACKEND_VERSION,
+            reply: formatWebResultsReply(web.results, 'AI provider is taking too long right now.'),
+          });
+        }
         try {
           console.log(`Trying model: ${model} (attempt ${attempt}/${maxRetries})`);
 
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 20000);
+          const remainingMs = Math.max(3000, BUDGET_MS - (Date.now() - startedAt));
+          const timeout = setTimeout(() => controller.abort(), Math.min(12000, remainingMs));
 
           const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
