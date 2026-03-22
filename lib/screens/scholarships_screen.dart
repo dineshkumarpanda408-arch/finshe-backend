@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../providers/app_provider.dart';
 import '../models/scholarship_model.dart';
+import '../models/user_model.dart';
 import '../services/firestore_service.dart';
+import '../theme/finshe_theme.dart';
+import '../utils/url_utils.dart';
 
 class ScholarshipsScreen extends StatefulWidget {
   const ScholarshipsScreen({super.key});
@@ -18,7 +20,7 @@ class _ScholarshipsScreenState extends State<ScholarshipsScreen> {
   String? _filterDegree;
   String? _filterCountry;
   String? _filterField;
-  String? _filterType; // Government / Private
+  String? _filterType;
 
   @override
   void dispose() {
@@ -26,7 +28,27 @@ class _ScholarshipsScreenState extends State<ScholarshipsScreen> {
     super.dispose();
   }
 
-  List<ScholarshipModel> _filter(List<ScholarshipModel> list) {
+  bool _matchesUserPreferences(ScholarshipModel s, UserPreferences? p) {
+    if (p == null) return true;
+    if (p.country != null && p.country!.trim().isNotEmpty) {
+      final t = p.country!.trim().toLowerCase();
+      final hay = '${s.country} ${s.eligibility} ${s.name} ${s.fieldOfStudy}'.toLowerCase();
+      if (!hay.contains(t)) return false;
+    }
+    if (p.degree != null && p.degree!.trim().isNotEmpty) {
+      final t = p.degree!.trim().toLowerCase();
+      final hay = '${s.fieldOfStudy} ${s.eligibility} ${s.name}'.toLowerCase();
+      if (!hay.contains(t)) return false;
+    }
+    if (p.fieldOfStudy != null && p.fieldOfStudy!.trim().isNotEmpty) {
+      final t = p.fieldOfStudy!.trim().toLowerCase();
+      final hay = '${s.fieldOfStudy} ${s.eligibility} ${s.name}'.toLowerCase();
+      if (!hay.contains(t)) return false;
+    }
+    return true;
+  }
+
+  List<ScholarshipModel> _filter(List<ScholarshipModel> list, UserPreferences? prefs) {
     var out = list;
     final q = _searchQuery.trim().toLowerCase();
     if (q.isNotEmpty) {
@@ -55,34 +77,95 @@ class _ScholarshipsScreenState extends State<ScholarshipsScreen> {
       final term = _filterType!.toLowerCase();
       out = out.where((s) => s.type.toLowerCase().contains(term) || s.provider.toLowerCase().contains(term)).toList();
     }
+    out = out.where((s) => _matchesUserPreferences(s, prefs)).toList();
     return out;
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final prefs = context.watch<AppProvider>().currentUser?.preferences;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scholarships'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list_rounded),
-            onPressed: () => _showFilterSheet(context),
-          ),
-        ],
-      ),
+      backgroundColor: FinsheColors.bg,
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search scholarships...',
-                prefixIcon: const Icon(Icons.search_rounded),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: FinsheColors.gradientHeader,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
+              boxShadow: [
+                BoxShadow(
+                  color: FinsheColors.accentPurple.withValues(alpha: 0.35),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 12, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Scholarships',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Empowering your education journey',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.88),
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Material(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            icon: const Icon(Icons.filter_list_rounded, color: Colors.white),
+                            onPressed: () => _showFilterSheet(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: _searchController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Search scholarships, majors...',
+                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
+                        prefixIcon: Icon(Icons.search_rounded, color: Colors.white.withValues(alpha: 0.75)),
+                        filled: true,
+                        fillColor: Colors.black.withValues(alpha: 0.22),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                    ),
+                  ],
+                ),
               ),
-              onChanged: (v) => setState(() => _searchQuery = v),
             ),
           ),
           Expanded(
@@ -90,17 +173,35 @@ class _ScholarshipsScreenState extends State<ScholarshipsScreen> {
               stream: FirestoreService().getScholarshipsStream(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Error: ${snapshot.error}',
+                        style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.error),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
                 }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final list = _filter(snapshot.data!);
+                final list = _filter(snapshot.data!, prefs);
                 if (list.isEmpty) {
-                  return const Center(child: Text('No scholarships match your filters.'));
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'No scholarships match your filters.',
+                        style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
                 }
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                   itemCount: list.length,
                   itemBuilder: (context, i) {
                     return _ScholarshipCard(scholarship: list[i]);
@@ -120,7 +221,7 @@ class _ScholarshipsScreenState extends State<ScholarshipsScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setModalState) {
-            return Padding(
+            return SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -187,83 +288,220 @@ class _ScholarshipsScreenState extends State<ScholarshipsScreen> {
   }
 }
 
+
 class _ScholarshipCard extends StatelessWidget {
   final ScholarshipModel scholarship;
 
   const _ScholarshipCard({required this.scholarship});
-
-  Future<void> _openUrl(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri != null && await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final saved = app.isScholarshipSaved(scholarship.id);
     final theme = Theme.of(context);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          if (scholarship.applicationLink.isNotEmpty) _openUrl(scholarship.applicationLink);
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      scholarship.name,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, height: 1.2),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Material(
+        color: FinsheColors.card,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(color: FinsheColors.outlineSoft.withValues(alpha: 0.65)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            if (scholarship.applicationLink.isNotEmpty) openExternalHttpUrl(scholarship.applicationLink);
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: LinearGradient(
+                          colors: [
+                            FinsheColors.accentPurple.withValues(alpha: 0.45),
+                            FinsheColors.accentPink.withValues(alpha: 0.35),
+                          ],
+                        ),
+                      ),
+                      child: const Icon(Icons.school_rounded, color: Colors.white, size: 24),
                     ),
-                  ),
-                  IconButton(
-                    icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, color: theme.colorScheme.primary),
-                    onPressed: () => app.toggleSavedScholarship(scholarship.id),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            scholarship.name,
+                            softWrap: true,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
+                              color: Colors.white,
+                              height: 1.2,
+                            ),
+                          ),
+                          if (scholarship.provider.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                scholarship.provider,
+                                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                        color: FinsheColors.accentLavender,
+                      ),
+                      onPressed: () => app.toggleSavedScholarship(scholarship.id),
+                    ),
+                  ],
+                ),
+                if (scholarship.amount.isNotEmpty || scholarship.deadline.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (scholarship.amount.isNotEmpty) ...[
+                        _InfoChip(
+                          icon: Icons.payments_rounded,
+                          label: scholarship.amount,
+                          foreground: FinsheColors.accentLavender,
+                        ),
+                      ],
+                      if (scholarship.amount.isNotEmpty && scholarship.deadline.isNotEmpty) const SizedBox(height: 8),
+                      if (scholarship.deadline.isNotEmpty)
+                        _InfoChip(
+                          icon: Icons.calendar_today_rounded,
+                          label: scholarship.deadline,
+                          foreground: FinsheColors.accentPink,
+                        ),
+                    ],
                   ),
                 ],
-              ),
-              if (scholarship.provider.isNotEmpty) _row('Provider', scholarship.provider),
-              if (scholarship.eligibility.isNotEmpty) _row('Eligibility', scholarship.eligibility),
-              if (scholarship.amount.isNotEmpty) _row('Amount', scholarship.amount),
-              if (scholarship.deadline.isNotEmpty) _row('Deadline', scholarship.deadline),
-              if (scholarship.country.isNotEmpty) _row('Country', scholarship.country),
-              if (scholarship.fieldOfStudy.isNotEmpty) _row('Field', scholarship.fieldOfStudy),
-              if (scholarship.applicationLink.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: InkWell(
-                    onTap: () => _openUrl(scholarship.applicationLink),
-                    child: Row(
-                      children: [
-                        Icon(Icons.open_in_new_rounded, size: 18, color: theme.colorScheme.primary),
-                        const SizedBox(width: 6),
-                        Expanded(child: Text('Apply here', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600))),
-                      ],
+                if (scholarship.eligibility.isNotEmpty) _row(context, 'Eligibility', scholarship.eligibility),
+                if (scholarship.country.isNotEmpty) _row(context, 'Country', scholarship.country),
+                if (scholarship.fieldOfStudy.isNotEmpty) _row(context, 'Field', scholarship.fieldOfStudy),
+                if (scholarship.applicationLink.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            FinsheColors.accentPurple,
+                            FinsheColors.accentPurple.withValues(alpha: 0.85),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: FinsheColors.accentPurple.withValues(alpha: 0.35),
+                            blurRadius: 16,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () => openExternalHttpUrl(scholarship.applicationLink),
+                        child: const Text('Apply Now', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
                     ),
                   ),
-                ),
-            ],
+                ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _row(String label, String value) {
+  Widget _row(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 90, child: Text('$label:', style: const TextStyle(fontWeight: FontWeight.w500))),
-          Expanded(child: Text(value)),
+          SizedBox(
+            width: 88,
+            child: Text(
+              '$label:',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color foreground;
+
+  const _InfoChip({required this.icon, required this.label, required this.foreground});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: FinsheColors.cardMuted,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: FinsheColors.outlineSoft.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: 16, color: foreground),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              softWrap: true,
+              style: TextStyle(color: foreground, fontWeight: FontWeight.w600, fontSize: 13, height: 1.35),
+            ),
+          ),
         ],
       ),
     );

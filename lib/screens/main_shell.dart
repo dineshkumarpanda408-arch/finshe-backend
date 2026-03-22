@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../theme/finshe_theme.dart';
 import 'scholarships_screen.dart';
 import 'loans_screen.dart';
 import 'ai_assistant_screen.dart';
@@ -38,11 +39,12 @@ class _MainShellState extends State<MainShell> {
       const ScholarshipsScreen(),
       const LoansScreen(),
       const AIAssistantScreen(),
-      const ProfileScreen(),
+      ProfileScreen(onNavigate: (i) => setState(() => _index = i)),
       if (isAdmin) const AdminPanelScreen(),
     ];
     final currentIndex = _index.clamp(0, children.length - 1);
     return Scaffold(
+      backgroundColor: FinsheColors.bg,
       body: IndexedStack(
         index: currentIndex,
         children: children,

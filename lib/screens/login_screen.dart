@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../theme/finshe_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -101,120 +102,233 @@ class _LoginScreenState extends State<LoginScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              theme.colorScheme.primary.withValues(alpha: 0.08),
-              theme.colorScheme.surface,
+              FinsheColors.bg,
+              Color(0xFF1A1025),
+              FinsheColors.cardMuted,
             ],
+            stops: [0.0, 0.55, 1.0],
           ),
         ),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.school_rounded, size: 56, color: theme.colorScheme.primary),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(32),
+                    boxShadow: [
+                      BoxShadow(
+                        color: FinsheColors.accentPurple.withValues(alpha: 0.15),
+                        blurRadius: 48,
+                        offset: const Offset(0, 24),
+                        spreadRadius: -12,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Finshe',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                      letterSpacing: -0.5,
+                  child: Card(
+                    elevation: 0,
+                    color: FinsheColors.card.withValues(alpha: 0.98),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(32),
+                      side: BorderSide(
+                        color: FinsheColors.outlineSoft.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(22),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: FinsheColors.gradientPurplePink,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: FinsheColors.accentPink.withValues(alpha: 0.2),
+                                  blurRadius: 28,
+                                  offset: const Offset(0, 12),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.school_rounded,
+                              size: 52,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          Text(
+                            'Finshe',
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -1.2,
+                              color: Colors.white,
+                              height: 1.05,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Scholarship & Financial Opportunities for Women',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              height: 1.45,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          const SizedBox(height: 36),
+                          Consumer<AppProvider>(
+                            builder: (_, app, __) {
+                              if (app.authError != null) {
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(app.authError!), backgroundColor: theme.colorScheme.error),
+                                  );
+                                  app.authError = null;
+                                });
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                          if (!_showAdminForm) ...[
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                onPressed: _loading ? null : () => _signInWithGoogle(context.read<AppProvider>()),
+                                icon: _loading
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : const Icon(Icons.g_mobiledata_rounded, size: 24),
+                                label: Text(_loading ? 'Signing in...' : 'Continue with Google'),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              ),
+                              onPressed: () => setState(() => _showAdminForm = true),
+                              child: Text(
+                                'Admin Login',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ] else ...[
+                            TextField(
+                              controller: _adminEmailController,
+                              decoration: InputDecoration(
+                                labelText: 'Admin Email',
+                                filled: true,
+                                fillColor: FinsheColors.cardMuted,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(
+                                    color: FinsheColors.outlineSoft,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: FinsheColors.accentPurple, width: 1.5),
+                                ),
+                                prefixIcon: const Icon(Icons.email_outlined),
+                              ),
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: _adminPasswordController,
+                              decoration: InputDecoration(
+                                labelText: 'Admin Password',
+                                filled: true,
+                                fillColor: FinsheColors.cardMuted,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(
+                                    color: FinsheColors.outlineSoft,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: FinsheColors.accentPurple, width: 1.5),
+                                ),
+                                prefixIcon: const Icon(Icons.lock_outline),
+                              ),
+                              obscureText: true,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _signInAsAdmin(context.read<AppProvider>()),
+                            ),
+                            const SizedBox(height: 28),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                onPressed: _loading ? null : () => _signInAsAdmin(context.read<AppProvider>()),
+                                child: Text(_loading ? 'Checking...' : 'Admin Login'),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              ),
+                              onPressed: () => setState(() => _showAdminForm = false),
+                              child: Text(
+                                'Back to User Login',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Scholarship & Financial Opportunities for Women',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-                Consumer<AppProvider>(
-                  builder: (_, app, __) {
-                    if (app.authError != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(app.authError!), backgroundColor: theme.colorScheme.error),
-                        );
-                        app.authError = null;
-                      });
-                    }
-                    return const SizedBox.shrink();
-                  },
                 ),
-                if (!_showAdminForm) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _loading ? null : () => _signInWithGoogle(context.read<AppProvider>()),
-                      icon: _loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.g_mobiledata_rounded, size: 24),
-                      label: Text(_loading ? 'Signing in...' : 'Continue with Google'),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => setState(() => _showAdminForm = true),
-                    child: const Text('Admin Login'),
-                  ),
-                ] else ...[
-                  TextField(
-                    controller: _adminEmailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Admin Email',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _adminPasswordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Admin Password',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock_outline),
-                    ),
-                    obscureText: true,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _signInAsAdmin(context.read<AppProvider>()),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _loading ? null : () => _signInAsAdmin(context.read<AppProvider>()),
-                      child: Text(_loading ? 'Checking...' : 'Admin Login'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => setState(() => _showAdminForm = false),
-                    child: const Text('Back to User Login'),
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
   }
 }

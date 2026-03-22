@@ -38,6 +38,20 @@ class UserModel {
     };
   }
 
+  /// Drops empty/blank entries and duplicates so counts match real saved items.
+  static List<String> sanitizeSavedIds(dynamic raw) {
+    if (raw == null) return [];
+    if (raw is! List) return [];
+    final seen = <String>{};
+    final out = <String>[];
+    for (final e in raw) {
+      final s = e?.toString().trim() ?? '';
+      if (s.isEmpty) continue;
+      if (seen.add(s)) out.add(s);
+    }
+    return out;
+  }
+
   factory UserModel.fromMap(String id, Map<String, dynamic> map) {
     final prefs = map['preferences'];
     return UserModel(
@@ -45,8 +59,8 @@ class UserModel {
       name: map['name']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
       role: map['role']?.toString() ?? 'user',
-      savedScholarships: List<String>.from(map['savedScholarships'] ?? []),
-      savedLoans: List<String>.from(map['savedLoans'] ?? []),
+      savedScholarships: sanitizeSavedIds(map['savedScholarships']),
+      savedLoans: sanitizeSavedIds(map['savedLoans']),
       preferences: prefs is Map ? UserPreferences.fromMap(Map.from(prefs)) : null,
       subscriptionStatus: map['subscriptionStatus'] == true,
       lastLoginDate: map['lastLoginDate']?.toString(),

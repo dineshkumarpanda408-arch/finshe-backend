@@ -65,8 +65,15 @@ class LoanModel {
       'max_loan_amount': maxAmount,
       'eligibility': eligibility,
       'applicationLink': applicationLink,
-      if (country != null) 'country': country,
-      if (loanType != null) 'loan_type': loanType,
+      'Link': applicationLink,
+      if (country != null && country!.isNotEmpty) 'country': country,
+      if (country != null && country!.isNotEmpty) 'Country': country,
+      if (loanType != null && loanType!.isNotEmpty) 'loan_type': loanType,
+      if (collateralRequired != null && collateralRequired!.isNotEmpty) 'collateral_required': collateralRequired,
+      if (insuranceRequired != null && insuranceRequired!.isNotEmpty) 'insurance_required': insuranceRequired,
+      if (margin != null && margin!.isNotEmpty) 'margin': margin,
+      if (processingFee != null && processingFee!.isNotEmpty) 'processing_fee': processingFee,
+      if (repaymentPeriod != null && repaymentPeriod!.isNotEmpty) 'repayment_period': repaymentPeriod,
     };
   }
 }

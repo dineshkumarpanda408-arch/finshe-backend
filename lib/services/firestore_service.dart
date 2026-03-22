@@ -23,25 +23,29 @@ class FirestoreService {
   }
 
   Future<void> toggleSavedScholarship(String uid, String scholarshipId) async {
+    final id = scholarshipId.trim();
+    if (id.isEmpty) return;
     final doc = await _users.doc(uid).get();
     if (!doc.exists) return;
-    final list = List<String>.from(doc.data()?['savedScholarships'] ?? []);
-    if (list.contains(scholarshipId)) {
-      list.remove(scholarshipId);
+    var list = UserModel.sanitizeSavedIds(doc.data()?['savedScholarships']);
+    if (list.contains(id)) {
+      list = list.where((e) => e != id).toList();
     } else {
-      list.add(scholarshipId);
+      list = [...list, id];
     }
     await _users.doc(uid).update({'savedScholarships': list});
   }
 
   Future<void> toggleSavedLoan(String uid, String loanId) async {
+    final id = loanId.trim();
+    if (id.isEmpty) return;
     final doc = await _users.doc(uid).get();
     if (!doc.exists) return;
-    final list = List<String>.from(doc.data()?['savedLoans'] ?? []);
-    if (list.contains(loanId)) {
-      list.remove(loanId);
+    var list = UserModel.sanitizeSavedIds(doc.data()?['savedLoans']);
+    if (list.contains(id)) {
+      list = list.where((e) => e != id).toList();
     } else {
-      list.add(loanId);
+      list = [...list, id];
     }
     await _users.doc(uid).update({'savedLoans': list});
   }
@@ -112,6 +116,10 @@ class FirestoreService {
     return _notifications.orderBy('date', descending: true).limit(50).snapshots().map((snap) {
       return snap.docs.map((d) => AppNotification.fromFirestore(d.id, d.data())).toList();
     });
+  }
+
+  Future<void> deleteNotification(String id) async {
+    await _notifications.doc(id).delete();
   }
 
   // ---------- AI queries (log for history) ----------

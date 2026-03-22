@@ -45,3 +45,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local share copies (run distribution/build_release_apk.ps1)
+distribution/**/*.apk

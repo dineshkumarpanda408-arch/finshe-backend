@@ -32,6 +32,14 @@ class ScholarshipModel {
       return v.toString().trim();
     }
 
+    String firstLink() {
+      for (final k in ['Link', 'applicationLink', 'ApplicationLink', 'URL', 'link', 'url']) {
+        final v = data[k];
+        if (v != null && v.toString().trim().isNotEmpty) return v.toString().trim();
+      }
+      return '';
+    }
+
     return ScholarshipModel(
       id: id,
       name: getStr('Name', 'name'),
@@ -41,7 +49,7 @@ class ScholarshipModel {
       deadline: getStr('Deadline', 'deadline'),
       country: getStr('Country', 'country'),
       fieldOfStudy: getStr('FieldOfStudy', 'fieldOfStudy'),
-      applicationLink: getStr('Link', 'applicationLink'),
+      applicationLink: firstLink(),
       type: getStr('Type', 'type'),
     );
   }
@@ -56,6 +64,7 @@ class ScholarshipModel {
       'Country': country,
       'FieldOfStudy': fieldOfStudy,
       'Link': applicationLink,
+      'applicationLink': applicationLink,
       'Type': type,
     };
   }

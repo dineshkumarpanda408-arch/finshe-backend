@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
 import '../models/scholarship_model.dart';
 import '../models/loan_model.dart';
 import '../services/firestore_service.dart';
-import '../services/notification_service.dart';
+import '../theme/finshe_theme.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -31,11 +29,22 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: FinsheColors.bg,
       appBar: AppBar(
-        title: const Text('Admin Panel'),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: FinsheColors.gradientHeader,
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+          ),
+        ),
+        title: Text('Admin Panel', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800, color: Colors.white)),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withValues(alpha: 0.65),
+          indicatorColor: FinsheColors.accentLavender,
           tabs: const [
             Tab(text: 'Scholarships', icon: Icon(Icons.school_rounded)),
             Tab(text: 'Loans', icon: Icon(Icons.account_balance_rounded)),
@@ -70,21 +79,36 @@ class _AdminScholarshipsTab extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            FilledButton.icon(
-              onPressed: () => _showAddScholarship(context),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add scholarship'),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () => _showAddScholarship(context),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Add scholarship'),
+              ),
             ),
             const SizedBox(height: 16),
-            ...list.map((s) => ListTile(
-                  title: Text(s.name),
-                  subtitle: Text('${s.provider} · ${s.country}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(icon: const Icon(Icons.edit_rounded), onPressed: () => _showEditScholarship(context, s)),
-                      IconButton(icon: const Icon(Icons.delete_rounded), onPressed: () => _confirmDeleteScholarship(context, s)),
-                    ],
+            ...list.map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Material(
+                    color: FinsheColors.card,
+                    borderRadius: BorderRadius.circular(18),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+                      subtitle: Text('${s.provider} · ${s.country}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(icon: const Icon(Icons.edit_rounded), onPressed: () => _showEditScholarship(context, s)),
+                          IconButton(icon: Icon(Icons.delete_rounded, color: Theme.of(context).colorScheme.error), onPressed: () => _confirmDeleteScholarship(context, s)),
+                        ],
+                      ),
+                    ),
                   ),
                 )),
           ],
@@ -128,7 +152,14 @@ class _AdminScholarshipsTab extends StatelessWidget {
               TextField(controller: deadline, decoration: const InputDecoration(labelText: 'Deadline')),
               TextField(controller: country, decoration: const InputDecoration(labelText: 'Country')),
               TextField(controller: fieldOfStudy, decoration: const InputDecoration(labelText: 'Field of study')),
-              TextField(controller: link, decoration: const InputDecoration(labelText: 'Application link')),
+              TextField(
+                controller: link,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'Application link',
+                  hintText: 'https://example.com/apply',
+                ),
+              ),
               TextField(controller: type, decoration: const InputDecoration(labelText: 'Type (Government/Private)')),
             ],
           ),
@@ -227,21 +258,36 @@ class _AdminLoansTab extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            FilledButton.icon(
-              onPressed: () => _showAddLoan(context),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add loan'),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () => _showAddLoan(context),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Add loan'),
+              ),
             ),
             const SizedBox(height: 16),
-            ...list.map((l) => ListTile(
-                  title: Text(l.name),
-                  subtitle: Text('${l.interestRate} · ${l.maxAmount}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(icon: const Icon(Icons.edit_rounded), onPressed: () => _showEditLoan(context, l)),
-                      IconButton(icon: const Icon(Icons.delete_rounded), onPressed: () => _confirmDeleteLoan(context, l)),
-                    ],
+            ...list.map((l) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Material(
+                    color: FinsheColors.card,
+                    borderRadius: BorderRadius.circular(18),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      title: Text(l.name, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+                      subtitle: Text('${l.interestRate} · ${l.maxAmount}', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(icon: const Icon(Icons.edit_rounded), onPressed: () => _showEditLoan(context, l)),
+                          IconButton(icon: Icon(Icons.delete_rounded, color: Theme.of(context).colorScheme.error), onPressed: () => _confirmDeleteLoan(context, l)),
+                        ],
+                      ),
+                    ),
                   ),
                 )),
           ],
@@ -265,6 +311,13 @@ class _AdminLoansTab extends StatelessWidget {
     final maxAmount = TextEditingController(text: existing?.maxAmount ?? '');
     final eligibility = TextEditingController(text: existing?.eligibility ?? '');
     final link = TextEditingController(text: existing?.applicationLink ?? '');
+    final country = TextEditingController(text: existing?.country ?? '');
+    final loanType = TextEditingController(text: existing?.loanType ?? '');
+    final repaymentPeriod = TextEditingController(text: existing?.repaymentPeriod ?? '');
+    final collateral = TextEditingController(text: existing?.collateralRequired ?? '');
+    final insurance = TextEditingController(text: existing?.insuranceRequired ?? '');
+    final margin = TextEditingController(text: existing?.margin ?? '');
+    final processingFee = TextEditingController(text: existing?.processingFee ?? '');
     final firestore = this.firestore;
 
     await showDialog(
@@ -280,7 +333,21 @@ class _AdminLoansTab extends StatelessWidget {
               TextField(controller: interestRate, decoration: const InputDecoration(labelText: 'Interest rate')),
               TextField(controller: maxAmount, decoration: const InputDecoration(labelText: 'Max amount')),
               TextField(controller: eligibility, decoration: const InputDecoration(labelText: 'Eligibility')),
-              TextField(controller: link, decoration: const InputDecoration(labelText: 'Application link')),
+              TextField(
+                controller: link,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'Application link',
+                  hintText: 'https://...',
+                ),
+              ),
+              TextField(controller: country, decoration: const InputDecoration(labelText: 'Country')),
+              TextField(controller: loanType, decoration: const InputDecoration(labelText: 'Loan type')),
+              TextField(controller: repaymentPeriod, decoration: const InputDecoration(labelText: 'Repayment period')),
+              TextField(controller: collateral, decoration: const InputDecoration(labelText: 'Collateral required')),
+              TextField(controller: insurance, decoration: const InputDecoration(labelText: 'Insurance required')),
+              TextField(controller: margin, decoration: const InputDecoration(labelText: 'Margin')),
+              TextField(controller: processingFee, decoration: const InputDecoration(labelText: 'Processing fee')),
             ],
           ),
         ),
@@ -296,6 +363,13 @@ class _AdminLoansTab extends StatelessWidget {
                 maxAmount: maxAmount.text.trim(),
                 eligibility: eligibility.text.trim(),
                 applicationLink: link.text.trim(),
+                country: country.text.trim().isEmpty ? null : country.text.trim(),
+                loanType: loanType.text.trim().isEmpty ? null : loanType.text.trim(),
+                collateralRequired: collateral.text.trim().isEmpty ? null : collateral.text.trim(),
+                insuranceRequired: insurance.text.trim().isEmpty ? null : insurance.text.trim(),
+                margin: margin.text.trim().isEmpty ? null : margin.text.trim(),
+                processingFee: processingFee.text.trim().isEmpty ? null : processingFee.text.trim(),
+                repaymentPeriod: repaymentPeriod.text.trim().isEmpty ? null : repaymentPeriod.text.trim(),
               );
               if (existing != null) {
                 await firestore.updateLoan(existing.id, model);
@@ -339,37 +413,62 @@ class _AdminNotificationsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('Send a notification to all users:', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        TextField(
-          controller: titleController,
-          decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: messageController,
-          decoration: const InputDecoration(labelText: 'Message', border: OutlineInputBorder()),
-          maxLines: 3,
-        ),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: () async {
-            final title = titleController.text.trim();
-            final message = messageController.text.trim();
-            if (title.isEmpty || message.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter title and message')));
-              return;
-            }
-            await firestore.sendNotification(title: title, message: message);
-            await NotificationService.show(title, message);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notification sent')));
-              titleController.clear();
-              messageController.clear();
-            }
-          },
-          icon: const Icon(Icons.send_rounded),
-          label: const Text('Send notification'),
+        Material(
+          color: FinsheColors.card,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Send a notification to all users:', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, color: Colors.white)),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: messageController,
+                  decoration: const InputDecoration(labelText: 'Message', border: OutlineInputBorder()),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: () async {
+                      final title = titleController.text.trim();
+                      final message = messageController.text.trim();
+                      if (title.isEmpty || message.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter title and message')));
+                        return;
+                      }
+                      await firestore.sendNotification(title: title, message: message);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Notice saved. Everyone sees it under Profile → Announcements in the app. '
+                              'System push alerts require Firebase Cloud Messaging setup.',
+                            ),
+                          ),
+                        );
+                        titleController.clear();
+                        messageController.clear();
+                      }
+                    },
+                    icon: const Icon(Icons.send_rounded),
+                    label: const Text('Send notification'),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
