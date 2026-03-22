@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FinShe — Download APK</title>
+  <style>
+    :root {
+      --bg: #0c0618;
+      --card: #1a1428;
+      --accent: #8b5cf6;
+      --text: #f4f0ff;
+      --muted: #a8a0c0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(ellipse 120% 80% at 50% -20%, #2d1b4e, var(--bg));
+      color: var(--text);
+      padding: 24px 16px 48px;
+    }
+    .wrap { max-width: 440px; margin: 0 auto; }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin: 0 0 8px;
+      background: linear-gradient(135deg, #e9d5ff, #fff, #fbcfe8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    p.lead { color: var(--muted); margin: 0 0 18px; line-height: 1.5; font-size: 0.95rem; }
+    .card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 20px;
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      box-shadow: 0 20px 50px rgba(0,0,0,.35);
+    }
+    label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+    input[type="url"] {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      background: #120a1c;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    button {
+      flex: 1;
+      min-width: 100px;
+      padding: 14px 16px;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #6d28d9);
+      color: white;
+      flex: 1.4;
+    }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid rgba(139, 92, 246, 0.55);
+      color: #e9d5ff;
+    }
+    #qr {
+      display: block;
+      margin: 22px auto 0;
+      border-radius: 16px;
+      background: white;
+      padding: 12px;
+      max-width: 100%;
+    }
+    .hint {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(139, 92, 246, 0.12);
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .hint strong { color: #e9d5ff; }
+    code { font-size: 0.75rem; background: #0a0612; padding: 2px 6px; border-radius: 6px; word-break: break-all; }
+    .mono { font-size: 0.72rem; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Download FinShe</h1>
+    <p class="lead">
+      Use a <strong>direct file URL</strong> (ends in <code>.apk</code>) so the phone or PC starts the download immediately.
+      If you host with Firebase (see repo <code>firebase.json</code>), the server sends <code>Content-Disposition: attachment</code> for <code>.apk</code> files.
+    </p>
+
+    <div class="card">
+      <label for="apkUrl">Direct HTTPS link to the APK file</label>
+      <input type="url" id="apkUrl" placeholder="https://your-site.web.app/FinShe-release.apk" autocomplete="off" />
+
+      <div class="row">
+        <button type="button" class="btn-primary" id="btnDownload">Download APK</button>
+        <button type="button" class="btn-secondary" id="btnThisSite">Use APK on this site</button>
+      </div>
+      <div class="row">
+        <button type="button" class="btn-secondary" id="btnQr">Show QR (same link)</button>
+      </div>
+
+      <img id="qr" alt="QR code" width="280" height="280" hidden />
+
+      <div class="hint">
+        <strong>Direct download links (examples)</strong><br /><br />
+        <strong>Firebase Hosting</strong> (recommended): deploy this folder — share
+        <span class="mono"><code id="sampleUrl"></code></span><br /><br />
+        <strong>Google Drive:</strong> share file → copy ID from <code>…/file/d/<strong>FILE_ID</strong>/view</strong></code> → use:<br />
+        <code>https://drive.google.com/uc?export=download&amp;id=FILE_ID</code><br /><br />
+        <strong>GitHub Releases:</strong> upload APK as a release asset → use the asset’s <code>…/releases/download/…/file.apk</code> URL (usually downloads directly).<br /><br />
+        <strong>Dropbox:</strong> change <code>www.dropbox.com</code> to <code>dl.dropboxusercontent.com</code> or add <code>dl=1</code> for raw file access.
+      </div>
+    </div>
+  </div>
+  <script>
+    const input = document.getElementById('apkUrl');
+    const img = document.getElementById('qr');
+    const enc = (s) => encodeURIComponent(s.trim());
+
+    document.getElementById('sampleUrl').textContent =
+      new URL('FinShe-release.apk', location.href).href;
+
+    document.getElementById('btnThisSite').addEventListener('click', () => {
+      input.value = new URL('FinShe-release.apk', location.href).href;
+    });
+
+    /** Same-origin: fetch + save as file. Cross-origin: full navigation (needs server attachment or direct file URL). */
+    async function downloadApk() {
+      const url = input.value.trim();
+      if (!url || !/^https?:\/\//i.test(url)) {
+        alert('Paste the full https://… link to your .apk file.');
+        return;
+      }
+      try {
+        const res = await fetch(url, { mode: 'cors' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'FinShe-release.apk';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      } catch (_) {
+        window.location.href = url;
+      }
+    }
+
+    function setQr() {
+      const url = input.value.trim();
+      if (!url || !/^https?:\/\//i.test(url)) {
+        alert('Paste the APK URL first.');
+        return;
+      }
+      img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=' + enc(url);
+      img.hidden = false;
+    }
+
+    document.getElementById('btnDownload').addEventListener('click', downloadApk);
+    document.getElementById('btnQr').addEventListener('click', setQr);
+
+    const q = new URLSearchParams(location.search).get('apk');
+    if (q) {
+      input.value = q;
+      setQr();
+    } else if (location.protocol === 'https:' && location.pathname.endsWith('/')) {
+      input.value = new URL('FinShe-release.apk', location.href).href;
+    }
+  </script>
+</body>
+</html>
